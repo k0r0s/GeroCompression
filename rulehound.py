@@ -10,47 +10,75 @@ def bin_repr_arr(decimal_num,bit_width):
     bit_array = np.array([[int(bit) for bit in bit_string]],dtype = np.int32)
     return bit_array
 
-def seek_rule(final_config,max_steps):
+def seek_rule(final_config, steps, default_config = True, fix_steps = False):
+    # opt 0: DEF_CONFIG_TRUE, FIXED_STEPS_FALSE
+    # opt 1: DEF_CONFIG_TRUE, FIXED_STEPS_TRUE
+    # opt 2: DEF_CONFIG_FALSE, FIXED_STEPS_FALSE
+    # opt 3: DEF_CONFIG_FALSE, FIXED_STEPS_TRUE
+
+    if (default_config == True):
+        if (fix_steps == False):
+            opt = 0
+        else: 
+            opt = 1
+    else: 
+        if (fix_steps == False):
+            opt = 2
+        else:
+            opt = 3
+    
     bitsize = len(final_config)
-    for j in range(256): #rules
-        iconfig = cpl.init_simple(bitsize,1) #  0 0 0 0 1 0 0 0 0
-        ca = cpl.evolve(iconfig, timesteps = max_steps if max_steps != 0 else cpl.until_fixed_point(),\
-                        memoize=True, apply_rule=lambda n, c, t: cpl.nks_rule(n,j))
-        for k in range(max_steps):
-            if (ca[k] == final_config).all():
-                print("rule:\t{}[bits: {}],\tstep:\t{}[bits: {}],\tdflt: {}".format(j,j.bit_length(),k,k.bit_length(),iconfig))
-                return (j,k)
-    print("No rule for this config.")
-    return (0,0)
+    match opt:
+        case 0:
+            iconfig = cpl.init_simple(bitsize,1)
+            for j in range(256):
+                ca = cpl.evolve(iconfig, timesteps = steps if steps != 0 else cpl.until_fixed_point,\
+                                memoize = True, apply_rule = lambda n, c, t: cpl.nks_rule(n,j))
+                for k in range(steps):
+                    if (ca[k] == final_config).all():
+                        return (iconfig,j,k + 1) #rule and step where matched
+            print("No configuration found for byte: {}.\n".format(final_config))
+            return (iconfig, 0, steps) # no match found within given range
 
+        case 1: 
+            iconfig = cpl.init_simple(bitsize, 1)
+            for j in range(256):
+                ca = cpl.evolve(iconfig, timesteps = steps, memoize = True, apply_rule = lambda n, c, t: cpl.nks_rule(n,j))
+                if (ca[-1] == final_config).all():
+                    return (iconfig,j,steps) # rule and number of steps fixed
+                else:
+                    print("No configuration found.\n")
+                    return (iconfig, 0, steps) #no match found within given range
+        case 2: 
+            for i in range(2**bitsize):
+                iconfig = bin_repr_arr(i,bitsize) 
+                for j in range(256):
+                    ca = cpl.evolve(iconfig, timesteps = steps, memoize=True, apply_rule=lambda n, c, t: cpl.nks_rule(n,j))
+                    for k in range(steps):
+                        if (ca[k] == final_config).all():
+                            return (iconfig, j, k+1) 
+            return (iconfig, 0, 0)
+        case 3: 
+            for i in range(2**bitsize):
+                iconfig = bin_repr_arr(i,bitsize) 
+                for j in range(256):
+                    ca = cpl.evolve(iconfig, timesteps = steps, memoize=True, apply_rule=lambda n, c, t: cpl.nks_rule(n,j))
+                    if (ca[-1] == final_config).all():
+                        return (iconfig, j, steps)
+            print("No configuration found.\n")
+            return (iconfig,0, steps)
+            
 
+def expand_rule(rule, bitsize, ts, seed=None):
+    if seed is None:
+        seed = cpl.init_simple(bitsize, 1)
 
-
-def seek_rule_seed(final_config,max_steps):
-    bitsize = len(final_config)
-    for i in range(2**bitsize):
-        for j in range(256):
-            iconfig = bin_repr_arr(i,bitsize) # any config 0 1 0 0 1 1 0 1       
-            ca = cpl.evolve(iconfig, timesteps = max_steps, memoize=True, apply_rule=lambda n, c, t: cpl.nks_rule(n,j))
-            for k in range(max_steps):
-                if (ca[k] == final_config).all():
-                    print("rule:\t{}[bits: {}],\tstep:\t{}[bits: {}],\ticonfig:\t{}".format(j,j.bit_length(),k,k.bit_length(),iconfig))
-                    return (iconfig, j, k)
-
-def expand_rule(rule, bitsize, ts):
-    ca = cpl.init_simple(bitsize,1)
-    ca = cpl.evolve(ca, timesteps = 1 + ts, memoize=True, apply_rule = lambda n, c, t: cpl.nks_rule(n, rule))
+    ca = cpl.evolve(seed, timesteps = ts, memoize = True, apply_rule = lambda n, c, t: cpl.nks_rule(n, rule))
     carr = int("".join([str(x) for x in ca[-1]]), 2)
     carr = carr.to_bytes((carr.bit_length()+7)//8, 'big').decode()
     return carr
 
-def expand_rule_seed(seed, rule, bitsize, ts):
-    ca = seed
-    ca = cpl.evolve(seed, timesteps = 1 + ts, memoize=True, apply_rule = lambda n, c, t: cpl.nks_rule(n, rule))
-    carr = int("".join([str(x) for x in ca[-1]]), 2)
-    carr = carr.to_bytes((carr.bit_length()+7)//8, 'big').decode()
-    return carr
-
+ 
 
 def main():
     fconfig = np.array([0,0,0,0,1,0,0,1],dtype=np.int32)
