@@ -18,10 +18,14 @@ def binarr_to_int(cell_arr):
 
 def str_to_bin(strp, encoding):
     byte_array = bytearray(strp, encoding)
-    uint8_array = np.array(byte_array, dtype=np.uint8)
+    bytewidth  = int(get_encoding_width(encoding)/8)
+    barray = []
+    for i in range(0, len(byte_array), bytewidth):
+        barray.append(byte_array[i:i+bytewidth])
+
     bit_string = []
-    for byte in uint8_array:
-        char = np.binary_repr(byte, width=get_encoding_width(encoding))
+    for entry in barray:
+        char = bin(int.from_bytes(entry, byteorder = "little"))[2:].zfill(get_encoding_width(encoding))
         char = [int(bit) for bit in char]
         bit_string.append(char)
     return bit_string
@@ -41,7 +45,7 @@ def decimal_to_encoding(decimal_value, encoding):
             return bytes([0xF0 | (decimal_value >> 18), 0x80 | ((decimal_value >> 12) & 0x3F), 0x80 | ((decimal_value >> 6) & 0x3F), 0x80 | (decimal_value & 0x3F)])
     elif encoding.lower() == 'utf-16':
         if decimal_value <= 0xFFFF:
-            return decimal_value.to_bytes(2, byteorder='big')
+            return decimal_value.to_bytes(2, byteorder='little')
         else:
             code_point = decimal_value - 0x10000
             high_surrogate = 0xD800 + (code_point >> 10)
