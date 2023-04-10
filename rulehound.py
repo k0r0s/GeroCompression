@@ -1,6 +1,6 @@
 import cellpylib as cpl 
 import numpy as np
-
+import str2bin as sb
 
 def bin_repr_arr(decimal_num,bit_width):
     uint_num = np.uint32(decimal_num)
@@ -69,14 +69,16 @@ def seek_rule(final_config, steps, default_config = True, fix_steps = False):
             return (iconfig,0, steps)
             
 
-def expand_rule(rule, bitsize, ts, seed=None):
+def expand_rule(rule, bitsize, encoding, steps, seed=None):
     if seed is None:
         seed = cpl.init_simple(bitsize, 1)
 
-    ca = cpl.evolve(seed, timesteps = ts, memoize = True, apply_rule = lambda n, c, t: cpl.nks_rule(n, rule))
-    carr = int("".join([str(x) for x in ca[-1]]), 2)
-    carr = carr.to_bytes((carr.bit_length()+7)//8, 'big').decode()
-    return carr
+    ca = cpl.evolve(seed, timesteps = steps, memoize = True, apply_rule = lambda n, c, t: cpl.nks_rule(n, rule))
+    int_char = sb.binarr_to_int(ca) 
+    encoded_char = sb.decimal_to_encoding(int_char, encoding)
+    # encoded_char = carr.to_bytes((carr.bit_length()+7)//8, 'big').decode(encoding)
+    # TO CHANGE create a function to support utf-16/32
+    return encoded_char
 
  
 
